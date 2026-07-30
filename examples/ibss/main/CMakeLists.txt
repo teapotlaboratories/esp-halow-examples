@@ -1,5 +1,3 @@
-# Copyright 2026 Morse Micro
-#
 # SPDX-License-Identifier: Apache-2.0
 
 idf_component_register(

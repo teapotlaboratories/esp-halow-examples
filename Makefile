@@ -125,7 +125,7 @@ IDF := export IDF_TOOLS_PATH="$(IDF_TOOLS_PATH)"; \
            echo "      make install-toolchain"; \
            echo ""; \
            echo "  (Already have an ESP-IDF v5.4.2+ elsewhere? Skip it and use that:"; \
-           echo "      make $@ IDF_PATH=/path/to/esp-idf )"; \
+           echo "      make build IDF_PATH=/path/to/esp-idf )"; \
            exit 2; }; \
        cd "$(APP_DIR)" && \
        idf.py -B "$(BUILD_DIR)" \

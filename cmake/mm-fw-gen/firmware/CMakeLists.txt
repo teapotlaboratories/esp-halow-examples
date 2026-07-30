@@ -13,7 +13,7 @@
 # version is whatever vendor/morse-firmware is pinned at.
 #
 # Because this runs as a COPY under build/<app>, repo paths are resolved from
-# CMAKE_SOURCE_DIR (= the app dir firmware/<app>, so the repo root is two up).
+# CMAKE_SOURCE_DIR (= the example dir examples/<name>, so the repo root is two up).
 
 idf_component_register()
 
@@ -31,8 +31,8 @@ else()
     message(FATAL_ERROR "Target ${IDF_TARGET} not known. Exiting...")
 endif()
 
-# Repo root: the app's top-level CMakeLists is firmware/<app>/CMakeLists.txt, so
-# CMAKE_SOURCE_DIR is firmware/<app> and the repo root is two levels up.
+# Repo root: the example's top-level CMakeLists is examples/<name>/CMakeLists.txt, so
+# CMAKE_SOURCE_DIR is examples/<name> and the repo root is two levels up.
 set(_repo "${CMAKE_SOURCE_DIR}/../..")
 set(MORSE_FW_DIR "${_repo}/vendor/morse-firmware")
 set(MBIN_CONVERTER
