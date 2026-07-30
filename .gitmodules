@@ -1,0 +1,10 @@
+[submodule "vendor/morse-firmware"]
+	path = vendor/morse-firmware
+	url = https://github.com/MorseMicro/morse-firmware
+[submodule "components/halow"]
+	path = components/halow
+	url = https://github.com/teapotlaboratories/mm-esp32-halow.git
+[submodule "vendor/esp-idf"]
+	path = vendor/esp-idf
+	url = https://github.com/espressif/esp-idf.git
+	shallow = true

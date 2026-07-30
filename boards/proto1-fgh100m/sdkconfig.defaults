@@ -1,0 +1,32 @@
+# ---- Target / console / board (Seeed XIAO ESP32-S3 Plus + Quectel FGH100M) ----
+# Same XIAO carrier as boards/proto1 (identical SPI/control pins); the only
+# difference is the radio module — a Quectel FGH100M (Wio-WM6180) instead of the
+# Seeed mf16858 — which needs its own Board Config File (BCF). Used for the
+# RISK-01 IBSS bring-up (see docs/worklog/2026-06-18-risk01-ibss-recon.md).
+CONFIG_IDF_TARGET="esp32s3"
+CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y
+CONFIG_ESP_CONSOLE_SECONDARY_NONE=y
+
+# morselib + the HaLow stack do not fit the default app partition.
+CONFIG_PARTITION_TABLE_SINGLE_APP_LARGE=y
+
+# Regulatory domain: mmhalow_init() sets the channel list from this. US =
+# 902-928 MHz. Without it the stack reports "Channel list not set" and scan
+# fails. Valid: AU CA EU GB IN JP KR NZ US.
+CONFIG_HALOW_COUNTRY_CODE="US"
+
+# ---- Morse Micro MM6108 shim: XIAO HaLow wiring (same as proto1) ----
+CONFIG_MM_RESET_N=1
+CONFIG_MM_WAKE=2
+CONFIG_MM_BUSY=5
+CONFIG_MM_SPI_IRQ=3
+CONFIG_MM_SPI_CS=4
+CONFIG_MM_SPI_SCK=7
+CONFIG_MM_SPI_MISO=8
+CONFIG_MM_SPI_MOSI=9
+
+# MM6108 firmware + Board Config File. The FGH100M (Wio-WM6180) uses the Quectel
+# BCF; the forum IBSS success report was on this module family.
+CONFIG_MMHAL_CHIP_TYPE_MM6108=y
+CONFIG_MM_FW_FILE="mm6108.mbin"
+CONFIG_MM_BCF_FILE="bcf_fgh100mhaamd.mbin"

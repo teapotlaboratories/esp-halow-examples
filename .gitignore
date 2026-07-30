@@ -1,0 +1,32 @@
+# Repo-local ESP-IDF toolchain (compilers, gdb, openocd, Python venv). Installed by
+# `make install-toolchain` into IDF_TOOLS_PATH, which this Makefile pins here rather
+# than the machine-wide ~/.espressif. Gigabytes of binaries — never commit it.
+.espressif/
+
+# ESP-IDF / CMake build output
+build/
+sdkconfig
+sdkconfig.old
+*.bin
+*.elf
+*.map
+
+# ESP-IDF component manager. The HaLow component is vendored under components/
+# (a git submodule), so nothing is downloaded into managed_components/. The lock
+# file is regenerated on every reconfigure and, for local components, records a
+# machine-specific absolute path — so it is not committed either.
+managed_components/
+dependencies.lock
+
+# Editor / OS
+.vscode/
+.DS_Store
+*.swp
+
+# Python
+__pycache__/
+*.pyc
+
+# Note: ESP-IDF is vendored at vendor/esp-idf (pinned submodule, v5.4.2); the build
+# uses it by default. The toolchain itself (compilers, Python env) is set up
+# out-of-tree under ~/.espressif by vendor/esp-idf/install.sh. See README.md.

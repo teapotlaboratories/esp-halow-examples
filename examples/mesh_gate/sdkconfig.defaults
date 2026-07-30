@@ -1,0 +1,16 @@
+# Copyright 2026 Morse Micro
+#
+# SPDX-License-Identifier: Apache-2.0
+
+CONFIG_PARTITION_TABLE_CUSTOM=y
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"
+
+CONFIG_FREERTOS_HZ=1000
+
+# The gate runs a SoftAP alongside the mesh, so the AP-mode morselib sources are
+# required. (The mesh interface needs them regardless.)
+CONFIG_HALOW_AP_MODE=y
+
+# DHCP leases handed to AP clients. The pool starts at .2, so the default of 8 keeps
+# it clear of the mesh nodes' static .100+ range.
+CONFIG_LWIP_DHCPS_MAX_STATION_NUM=8

@@ -1,0 +1,30 @@
+# SPDX-License-Identifier: Apache-2.0
+# Tracks ESP Component Registry: morsemicro/firmware 2.10.4-esp32-2
+menu "Morse Micro Firmware Configuration"
+    config MM_BCF_FILE
+        string "Morse Micro Board Configuration File"
+        default "bcf_fgh100mhaamd.mbin"
+        help
+            Board Configuration File name. Converted at build time from the
+            matching ELF in vendor/morse-firmware/bcf/ (same basename, .bin).
+
+    config MM_FW_FILE
+        string "Morse Micro Firmware File"
+        default "mm6108.mbin"
+        help
+            Firmware image name. Converted at build time from the matching ELF
+            in vendor/morse-firmware/firmware/ (same basename, .bin).
+
+    choice MMHAL_CHIP_TYPE
+        bool "Morse Micro Chip Variant"
+        default MMHAL_CHIP_TYPE_MM6108
+        help
+            Which chip function ops morselib should use.
+
+        config MMHAL_CHIP_TYPE_MM6108
+            bool "mmhal_mm6108"
+        config MMHAL_CHIP_TYPE_MM8108
+            bool "mmhal_mm8108"
+    endchoice
+
+endmenu

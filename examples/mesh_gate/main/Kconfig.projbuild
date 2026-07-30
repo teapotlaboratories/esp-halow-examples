@@ -1,0 +1,77 @@
+# Copyright 2026 Morse Micro
+#
+# SPDX-License-Identifier: Apache-2.0
+
+menu "Mesh-gate example configuration"
+
+config EXAMPLE_MESH_ID
+	string "Mesh ID"
+	default "morse-mesh"
+	help
+	    Must match the mesh nodes this gate serves (see the `mesh` example).
+
+config EXAMPLE_MESH_MAX_PLINKS
+	int "Maximum mesh peer links"
+	default 16
+	range 1 16
+
+config EXAMPLE_RANN_INTERVAL_MS
+	int "Gate announcement (RANN) interval, milliseconds"
+	default 5000
+	help
+	    How often the gate floods a root announcement carrying the IS_GATE flag,
+	    so mesh nodes discover a way off the mesh.
+
+	    This value goes onto the wire as a raw number with no millisecond-to-TU
+	    conversion, so every gate on the same mesh — including a Linux one — must
+	    use the same value.
+
+config EXAMPLE_AP_SSID
+	string "SoftAP SSID"
+	default "MorseMicroESP32AP"
+
+config EXAMPLE_AP_PSK
+	string "SoftAP passphrase"
+	default "12345678"
+	help
+	    At least 8 characters — required for SAE.
+
+config EXAMPLE_AP_MAX_STAS
+	int "Maximum AP clients"
+	default 4
+	range 1 8
+	help
+	    The gate tracks its clients in a fixed table to decide which proxied mesh
+	    frames belong to its AP side, so this is bounded low on purpose.
+
+config EXAMPLE_S1G_CHANNEL
+	int "S1G channel"
+	default 27
+	help
+	    Both the mesh and the SoftAP run on this one channel — the MM6108 has a
+	    single radio, so the two interfaces are necessarily co-channel.
+
+config EXAMPLE_S1G_OPCLASS
+	int "S1G operating class"
+	default 68
+
+config EXAMPLE_SUBNET_PREFIX
+	string "IPv4 /24 prefix shared by the mesh and the AP"
+	default "10.9.9."
+	help
+	    Mesh nodes and AP clients live on ONE flat subnet — that is the point of
+	    bridging at layer 2. The gate's AP side is <prefix>1 and hands out DHCP
+	    leases from <prefix>2 upwards; mesh nodes take <prefix>100 and above.
+
+config EXAMPLE_PROXY_ARP_PUSH_MS
+	int "Proxy-ARP refresh interval, milliseconds (0 disables)"
+	default 3000
+	help
+	    Period at which the gate teaches each host it knows about the hosts on the
+	    other side of the bridge, over a reliable unicast.
+
+	    Set to 0 to rely on reactive proxy-ARP alone. That still works, but
+	    resolution then depends on a broadcast ARP request surviving the crossing,
+	    which is unacknowledged and lossy.
+
+endmenu

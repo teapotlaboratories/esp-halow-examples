@@ -1,0 +1,7 @@
+# Tracks ESP Component Registry: morsemicro/firmware 2.10.4-esp32-2
+description: >-
+  Morse Micro firmware + BCF, converted at build time from vendor/morse-firmware
+  (single source of truth). Copied here from cmake/mm-fw-gen/firmware/ at configure
+  time; satisfies halow's `morsemicro/firmware` dependency.
+license: Apache-2.0
+version: 2.10.4-esp32-2

@@ -1,0 +1,10 @@
+# ESP-IDF Partition Table
+#
+# The gate links the mesh stack, the AP stack and a second lwIP netif into one image,
+# which does not fit the stock single-app-large layout. 2.5 MB of application still
+# fits comfortably on a 4 MB part.
+#
+# Name, Type, SubType, Offset, Size, Flags
+nvs,data,nvs,0x9000,24K,
+phy_init,data,phy,0xf000,4K,
+factory,app,factory,0x10000,2560K,
