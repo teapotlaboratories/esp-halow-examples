@@ -1,0 +1,59 @@
+# SPDX-License-Identifier: Apache-2.0
+
+menu "Mesh example configuration"
+
+config EXAMPLE_MESH_ID
+	string "Mesh ID"
+	default "morse-mesh"
+	help
+	    The Mesh ID identifies the mesh BSS — the 802.11s equivalent of an SSID.
+	    Every node in the same mesh must use the same value.
+
+config EXAMPLE_MESH_S1G_CHANNEL
+	int "S1G channel"
+	default 27
+	help
+	    S1G channel number. 27 is 915.5 MHz at 1 MHz bandwidth in the US
+	    (global operating class 68). Must match every other node in the mesh.
+
+config EXAMPLE_MESH_MAX_PLINKS
+	int "Maximum mesh peer links"
+	default 16
+	range 1 16
+	help
+	    Upper bound on simultaneously established mesh peer links. The mesh
+	    peer table is sized to 16 (UMAC_MESH_MAX_PEERS).
+
+config EXAMPLE_MESH_IPV4_PREFIX
+	string "IPv4 /24 prefix for the mesh subnet"
+	default "10.9.9."
+	help
+	    Each node pins a static address in this /24. The host octet is derived
+	    from the node's own mesh MAC, so one binary runs on every board without
+	    per-node configuration. There is no DHCP server on a plain mesh.
+
+config EXAMPLE_MESH_AMPDU
+	bool "Enable A-MPDU aggregation"
+	default y
+	help
+	    Aggregate MPDUs into A-MPDUs on the mesh interface. Aggregation is
+	    assembled by the MM6108 firmware and negotiated with each peer over a
+	    Block Ack (ADDBA) handshake. Measured on a 3-node bench at roughly +37%
+	    single-hop and +38% relay throughput.
+
+	    Must be set before the interface is brought up — mmwlan_set_ampdu_enabled()
+	    may only be called while MMWLAN is inactive.
+
+config EXAMPLE_MESH_LEAF
+	bool "Leaf / single-hop mode"
+	default n
+	help
+	    Run this node as a mesh leaf: it peers with its direct neighbours as
+	    normal but never relays another node's traffic, never uses a multi-hop
+	    path for its own traffic, and emits no HWMP PREQ/PREP/PERR. Peers
+	    therefore never route through it, so it is not a black hole.
+
+	    Useful for a battery-powered node that should not spend energy
+	    forwarding for the rest of the mesh.
+
+endmenu

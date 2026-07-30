@@ -1,0 +1,10 @@
+# ESP-IDF Partition Table
+#
+# The HaLow stack plus this example does not leave useful headroom in the stock
+# single-app-large layout, so give the application 2 MB — still comfortable on a 4 MB
+# part, and leaves room to build on top of the example.
+#
+# Name, Type, SubType, Offset, Size, Flags
+nvs,data,nvs,0x9000,24K,
+phy_init,data,phy,0xf000,4K,
+factory,app,factory,0x10000,2M,

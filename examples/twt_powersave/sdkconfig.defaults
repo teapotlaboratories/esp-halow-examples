@@ -1,0 +1,28 @@
+# SPDX-License-Identifier: Apache-2.0
+
+CONFIG_PARTITION_TABLE_CUSTOM=y
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"
+CONFIG_FREERTOS_HZ=1000
+
+# Needed by the AP role. Harmless in the STA role, so it is set unconditionally to
+# keep one sdkconfig.defaults for both.
+CONFIG_HALOW_AP_MODE=y
+
+# CONFIG_HALOW_PS_MODE is deliberately NOT set here, because it is not portable.
+#
+# It controls only whether mmhalow_init() force-DISABLES power-save at boot. morselib's
+# own default is MMWLAN_PS_ENABLED, so leaving this option off is what keeps power-save
+# off until the application asks for it — and run_sta() does ask, right after
+# associating. Nothing here needs the option.
+#
+# The option's Kconfig states its precondition plainly: it "can only be set to true for
+# devices which have the BUSY and WAKE pins connected". The MM6108 signals over those
+# lines when it may be slept; without them the host and chip cannot agree, and the
+# symptom is that the station simply never associates — a 30 s timeout with no
+# diagnostic, because the detail never reaches the console.
+#
+# Both halves were bench-verified: setting it to y on a board WITHOUT those pins wired
+# breaks association outright, while on a fully-wired board it associates in ~5.7 s and
+# TWT still reaches INSTALLED. Power-save being live across the SAE handshake is NOT a
+# problem — the wiring is. Since an example cannot know how your board is wired, it
+# leaves this off and enables power-save at runtime instead, which works either way.

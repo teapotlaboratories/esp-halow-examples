@@ -1,0 +1,94 @@
+# SPDX-License-Identifier: Apache-2.0
+
+menu "TWT power-save example configuration"
+
+choice EXAMPLE_ROLE
+	prompt "Role"
+	default EXAMPLE_ROLE_STA
+	help
+	    Which half of the link this board plays. Flash one board as the AP and
+	    another as the STA.
+
+config EXAMPLE_ROLE_STA
+	bool "Station (TWT requester)"
+	help
+	    Associates to the AP, negotiates a TWT agreement, and dozes between
+	    service periods.
+
+config EXAMPLE_ROLE_AP
+	bool "SoftAP (TWT + WNM-sleep responder)"
+	help
+	    Runs a SoftAP that answers TWT setup requests and WNM-sleep requests,
+	    buffering downlink traffic for sleeping stations.
+
+endchoice
+
+config EXAMPLE_WIFI_SSID
+	string "Wi-Fi SSID"
+	default "MorseMicroESP32AP"
+	help
+	    Must match between the AP and STA roles.
+
+config EXAMPLE_WIFI_PSK
+	string "Wi-Fi passphrase"
+	default "12345678"
+	help
+	    At least 8 characters. SAE is used in both roles.
+
+config EXAMPLE_S1G_CHANNEL
+	int "S1G channel"
+	default 27
+
+config EXAMPLE_S1G_OPCLASS
+	int "S1G operating class"
+	default 68
+
+config EXAMPLE_AP_IPV4
+	string "SoftAP static IPv4 address"
+	default "192.168.12.1"
+	depends on EXAMPLE_ROLE_AP
+	help
+	    The AP role runs no DHCP server, so it pins a static address.
+
+config EXAMPLE_TWT_WAKE_INTERVAL_US
+	int "TWT wake interval (microseconds)"
+	default 10000000
+	depends on EXAMPLE_ROLE_STA
+	help
+	    Time between the station's scheduled service periods. Longer means
+	    deeper idle sleep; shorter means lower downlink latency.
+
+config EXAMPLE_TWT_MIN_WAKE_DURATION_US
+	int "TWT minimum wake duration (microseconds)"
+	default 65280
+	depends on EXAMPLE_ROLE_STA
+	help
+	    How long the station stays awake for each service period. Must not
+	    exceed the wake interval.
+
+config EXAMPLE_TWT_ACTION_FRAME
+	bool "Negotiate TWT mid-session with an action frame"
+	default n
+	depends on EXAMPLE_ROLE_STA
+	help
+	    By default the station adds its TWT configuration BEFORE associating, so
+	    the request rides inside the (re)association IEs. That is the portable
+	    path: an AP's assoc-time TWT responder handles it, and hostapd enables
+	    one by default.
+
+	    Enable this to instead associate first and then send a TWT Setup Request
+	    action frame. It is assoc-preserving and can be renegotiated at runtime,
+	    but not every AP answers it.
+
+config EXAMPLE_STA_WNM_SLEEP
+	bool "Enter WNM-sleep with chip power-down after the TWT phase"
+	default n
+	depends on EXAMPLE_ROLE_STA
+	help
+	    WNM-sleep lets the station stay associated while the radio sleeps for an
+	    extended period, with the AP buffering its downlink. Combined with chip
+	    power-down it is the lowest-power state that still keeps the association.
+
+	    Requires the AP to implement a WNM-sleep responder, and PMF.
+
+endmenu

@@ -1,0 +1,54 @@
+# SPDX-License-Identifier: Apache-2.0
+
+menu "IBSS example configuration"
+
+config EXAMPLE_IBSS_SSID
+	string "IBSS SSID"
+	default "morse-ibss"
+	help
+	    Identifies the ad-hoc cell. Must match on every node.
+
+config EXAMPLE_IBSS_BSSID
+	string "IBSS BSSID"
+	default "02:12:34:56:78:9a"
+	help
+	    The agreed cell BSSID, identical on every node. It should be
+	    locally-administered (the 0x02 bit set).
+
+	    This example assumes a PROVISIONED network: every node is deployed
+	    already knowing the BSSID, so there is only ever one cell and no TSF
+	    merge is needed. IBSS TSF merge exists to let uncoordinated nodes that
+	    each rolled a random BSSID converge on one cell; with a pre-shared BSSID
+	    that case does not arise. In a real deployment this value comes from
+	    provisioning rather than a literal.
+
+config EXAMPLE_IBSS_S1G_CHANNEL
+	int "S1G channel"
+	default 27
+	help
+	    S1G channel number. 27 is 915.5 MHz at 1 MHz bandwidth in the US
+	    (global operating class 68). Must match every other node in the cell.
+
+config EXAMPLE_IBSS_IPV4_PREFIX
+	string "IPv4 /24 prefix for the ad-hoc subnet"
+	default "192.168.13."
+	help
+	    Each node pins a static address in this /24, with the host octet derived
+	    from its own MAC, so one binary runs on every board unmodified.
+
+config EXAMPLE_IBSS_PEER_TIMEOUT_MS
+	int "Peer age-out threshold (ms)"
+	default 30000
+	help
+	    A peer not heard from within this window is aged out. Ageing is
+	    caller-driven: the application calls mmwlan_ibss_age_peers() itself
+	    rather than the driver running a timer.
+
+config EXAMPLE_IBSS_PING_PEERS
+	bool "Ping each peer as it is discovered"
+	default y
+	help
+	    Start a 1 Hz ICMP session against every newly discovered peer, so the
+	    console shows the data path working as nodes join.
+
+endmenu

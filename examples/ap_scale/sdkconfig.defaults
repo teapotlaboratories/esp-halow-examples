@@ -1,0 +1,18 @@
+# SPDX-License-Identifier: Apache-2.0
+
+CONFIG_PARTITION_TABLE_CUSTOM=y
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"
+CONFIG_FREERTOS_HZ=1000
+
+CONFIG_HALOW_AP_MODE=y
+
+# Admit up to 255 associated stations. Valid AIDs are 1..255 because the S1G TIM
+# spans four partial-virtual-bitmap blocks (MAX_SUPPORTED_AID = 256); 255 is also the
+# ceiling of the public uint8_t mmwlan_ap_args.max_stas field.
+CONFIG_HALOW_AP_MAX_STAS=255
+
+# Route the per-STA AP state to PSRAM instead of internal SRAM. At 255 stations that
+# is roughly 230 KB of umac_sta_data plus the per-vif TWT agreement table, which must
+# not come out of the small internal-SRAM pool. Requires CONFIG_SPIRAM, which comes
+# from the board configuration.
+CONFIG_HALOW_STA_DATA_IN_PSRAM=y
