@@ -25,6 +25,7 @@
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "freertos/semphr.h"
 
 #include "esp_log.h"
 #include "esp_mac.h"
@@ -59,11 +60,36 @@ static struct arp_entry g_arp[ARP_TABLE_MAX];
  * publish a mismatched IP/MAC pair, which is exactly the kind of fault that shows up as
  * "the bridge works, mostly".
  *
- * Critical sections here only ever scan or copy 24 fixed-size slots: no allocation, no
- * transmit, nothing blocking. The proactive push, which does transmit, snapshots the
- * table under the lock and releases it before sending a single frame.
+ * A MUTEX RATHER THAN A CRITICAL SECTION, and the difference is measured. Every accessor
+ * here is a task — both receive callbacks are dispatched from the one MAC event loop, the
+ * announce task is its own — so no interrupt context is involved and interrupts never
+ * need to be disabled. A portMUX critical section does disable them, and scanning the
+ * table with interrupts off on the PER-FRAME path costs real delivery: on the Rimba gate,
+ * which carries the same code, an A/B on one night measured 28/30 pings twice with
+ * critical sections against 30/30 both with a mutex and with no locking at all, at the
+ * same median round-trip time.
+ *
+ * The lock is never held across a transmit. The proactive push ages and snapshots the
+ * table under it, then releases before sending a single frame — otherwise the datapath
+ * would block for the whole O(clients x mesh hosts) sweep.
  */
-static portMUX_TYPE g_arp_mux = portMUX_INITIALIZER_UNLOCKED;
+static SemaphoreHandle_t g_arp_lock;
+
+static inline void arp_lock(void)
+{
+    if (g_arp_lock != NULL)
+    {
+        xSemaphoreTake(g_arp_lock, portMAX_DELAY);
+    }
+}
+
+static inline void arp_unlock(void)
+{
+    if (g_arp_lock != NULL)
+    {
+        xSemaphoreGive(g_arp_lock);
+    }
+}
 
 static TaskHandle_t g_announce_task;
 
@@ -91,7 +117,7 @@ static void arp_learn(uint32_t ip, const uint8_t *mac, uint8_t side)
 
     uint32_t now = now_ms();
 
-    taskENTER_CRITICAL(&g_arp_mux);
+    arp_lock();
     int free_i = -1;
     int lru_i = -1;
 
@@ -104,7 +130,7 @@ static void arp_learn(uint32_t ip, const uint8_t *mac, uint8_t side)
                 memcpy(g_arp[i].mac, mac, 6);
                 g_arp[i].side = side;
                 g_arp[i].last_ms = now;
-                taskEXIT_CRITICAL(&g_arp_mux);
+                arp_unlock();
                 return;
             }
             if (lru_i < 0 || (int32_t)(g_arp[i].last_ms - g_arp[lru_i].last_ms) < 0)
@@ -129,7 +155,7 @@ static void arp_learn(uint32_t ip, const uint8_t *mac, uint8_t side)
         g_arp[slot].used = true;   /* publish last, once the entry is fully populated */
         is_new = true;
     }
-    taskEXIT_CRITICAL(&g_arp_mux);
+    arp_unlock();
 
     /* Outside the lock: the notify can leave a context switch pending. */
     if (is_new)
@@ -140,7 +166,7 @@ static void arp_learn(uint32_t ip, const uint8_t *mac, uint8_t side)
 
 void gate_arp_forget_mac(const uint8_t *mac)
 {
-    taskENTER_CRITICAL(&g_arp_mux);
+    arp_lock();
     for (int i = 0; i < ARP_TABLE_MAX; i++)
     {
         if (g_arp[i].used && memcmp(g_arp[i].mac, mac, 6) == 0)
@@ -148,7 +174,7 @@ void gate_arp_forget_mac(const uint8_t *mac)
             g_arp[i].used = false;
         }
     }
-    taskEXIT_CRITICAL(&g_arp_mux);
+    arp_unlock();
 }
 
 bool gate_arp_resolve(uint32_t ip, uint8_t *mac_out, uint8_t *side_out)
@@ -156,7 +182,7 @@ bool gate_arp_resolve(uint32_t ip, uint8_t *mac_out, uint8_t *side_out)
     uint32_t now = now_ms();
     bool found = false;
 
-    taskENTER_CRITICAL(&g_arp_mux);
+    arp_lock();
     for (int i = 0; i < ARP_TABLE_MAX; i++)
     {
         if (g_arp[i].used && g_arp[i].ip == ip)
@@ -178,14 +204,14 @@ bool gate_arp_resolve(uint32_t ip, uint8_t *mac_out, uint8_t *side_out)
             break;
         }
     }
-    taskEXIT_CRITICAL(&g_arp_mux);
+    arp_unlock();
     return found;
 }
 
 int gate_arp_entry_count(void)
 {
     int n = 0;
-    taskENTER_CRITICAL(&g_arp_mux);
+    arp_lock();
     for (int i = 0; i < ARP_TABLE_MAX; i++)
     {
         if (g_arp[i].used)
@@ -193,7 +219,7 @@ int gate_arp_entry_count(void)
             n++;
         }
     }
-    taskEXIT_CRITICAL(&g_arp_mux);
+    arp_unlock();
     return n;
 }
 
@@ -347,7 +373,7 @@ static void arp_announce_once(void)
     int n = 0;
     uint32_t now = now_ms();
 
-    taskENTER_CRITICAL(&g_arp_mux);
+    arp_lock();
     for (int i = 0; i < ARP_TABLE_MAX; i++)
     {
         if (!g_arp[i].used)
@@ -364,7 +390,7 @@ static void arp_announce_once(void)
         view[n].side = g_arp[i].side;
         n++;
     }
-    taskEXIT_CRITICAL(&g_arp_mux);
+    arp_unlock();
 
     int pushed = 0;
     for (int a = 0; a < n; a++)
@@ -419,6 +445,7 @@ void gate_arp_start_announce(uint32_t period_ms)
      * load-bearing: arp_learn() wakes this task by handle, so a host learned while the
      * handle is still NULL drops its wake silently and waits out a full period.
      */
+    g_arp_lock = xSemaphoreCreateMutex();   /* before any receive path can learn */
     xTaskCreate(arp_announce_task, "gate_arp", 4096, (void *)(uintptr_t)period_ms, 4,
                 &g_announce_task);
 }
