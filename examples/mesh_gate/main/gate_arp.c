@@ -210,7 +210,14 @@ static void arp_build_reply(uint8_t *out, const uint8_t *req_mac, uint32_t req_i
     out[20] = 0x00; out[21] = 0x02;  /* operation = REPLY                      */
     memcpy(out + 22, tpa_mac, 6);    /* sender hardware = the answered host    */
     memcpy(out + 28, &tpa, 4);       /* sender protocol = the answered host IP */
-    memcpy(out + 34, req_mac, 6);    /* target hardware = the requester        */
+    /* Offset 32, not 34. The target hardware address sits at ARP-payload offset 18, which is
+     * absolute 32 with the 14-byte Ethernet header. At 34 it landed two bytes late: out[32..33]
+     * were never written, so uninitialised stack went on air, and out[38..39] were written twice.
+     * Every reply to an AP client carried a malformed target hardware address. It resolved anyway
+     * -- lwIP decides "for us" from the target PROTOCOL address and caches from sender hardware /
+     * protocol, never reading this field -- which is why it survived every bridge test. The SNAP
+     * builder below always had it right, and that disagreement is what exposed it. */
+    memcpy(out + 32, req_mac, 6);    /* target hardware = the requester        */
     memcpy(out + 38, &req_ip, 4);    /* target protocol = the requester IP     */
 }
 
