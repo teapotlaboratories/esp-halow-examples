@@ -37,10 +37,17 @@ config EXAMPLE_AP_PSK
 config EXAMPLE_AP_MAX_STAS
 	int "Maximum AP clients"
 	default 4
-	range 1 8
+	range 1 16
 	help
 	    The gate tracks its clients in a fixed table to decide which proxied mesh
-	    frames belong to its AP side, so this is bounded low on purpose.
+	    frames belong to its AP side, so this is bounded on purpose.
+
+	    The upper bound is 16 because the proactive proxy-ARP push costs
+	    O(clients x mesh hosts) of airtime in both directions — about 5% at 16
+	    clients with 5 mesh nodes on the default refresh interval. Two limits
+	    outside this example bind before the table does: MESH_MPP_MAX (32),
+	    which lives on every mesh node and which 16 clients on one gate already
+	    half-fills, and the flat /24's ~98 usable addresses.
 
 config EXAMPLE_S1G_CHANNEL
 	int "S1G channel"
@@ -63,10 +70,18 @@ config EXAMPLE_SUBNET_PREFIX
 
 config EXAMPLE_PROXY_ARP_PUSH_MS
 	int "Proxy-ARP refresh interval, milliseconds (0 disables)"
-	default 3000
+	default 15000
 	help
 	    Period at which the gate teaches each host it knows about the hosts on the
 	    other side of the bridge, over a reliable unicast.
+
+	    This is UPKEEP only — the gate also pushes immediately whenever it learns a
+	    new host, so a joining client is taught in milliseconds rather than waiting
+	    out the interval. Shortening this therefore buys very little and costs
+	    airtime quadratically: the sweep is O(clients x mesh hosts) in both
+	    directions, so at 16 clients and 5 mesh nodes 15 s costs about 5% of
+	    airtime and 3 s costs about 26%. Entries live 5 minutes, so 15 s still
+	    refreshes each mapping twenty times over its lifetime.
 
 	    Set to 0 to rely on reactive proxy-ARP alone. That still works, but
 	    resolution then depends on a broadcast ARP request surviving the crossing,

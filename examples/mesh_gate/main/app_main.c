@@ -163,9 +163,11 @@ void app_main(void)
 
     /* --- 3. bridge wiring -------------------------------------------------- */
     gate_netif_setup_ap();          /* second netif + DHCP server; captures the AP BSSID */
+    /* Before gate_bridge_register(), deliberately: the announce task is woken by handle from
+     * the receive path, so a host learned before the task exists drops its wake silently. */
+    gate_arp_start_announce(PROXY_ARP_PUSH_MS);
     gate_bridge_register();         /* per-vif receive callbacks + the AE hook           */
     gate_netif_start_mesh_addressing();
-    gate_arp_start_announce(PROXY_ARP_PUSH_MS);
 
     ESP_LOGI(GATE_TAG, "gate running: mesh SA " MACSTR ", AP BSSID " MACSTR,
              MAC2STR(g_mesh_mac), MAC2STR(g_ap_bssid));

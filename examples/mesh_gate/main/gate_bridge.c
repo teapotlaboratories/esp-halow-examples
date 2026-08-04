@@ -35,7 +35,7 @@
  * reader from seeing a torn slot or a stale count mid-removal. Nothing that blocks or
  * transmits runs inside it.
  * ------------------------------------------------------------------------- */
-#define GATE_MAX_CLIENTS 8
+#define GATE_MAX_CLIENTS 16
 
 /*
  * This table is the gate's REAL client ceiling, and it must not be smaller than the
@@ -55,6 +55,22 @@
  * EVERY received proxied frame inside a critical section, so a long linear scan would hold
  * interrupts off on the datapath. Past a handful of clients this wants a hash — the same
  * move the mesh path table made when it outgrew 8 entries.
+ *
+ * WHY 16 AND NOT MORE. The proactive proxy-ARP push is O(clients x mesh hosts) in BOTH
+ * directions, at roughly 4.85 ms per push at 1 MHz MCS0. With 5 mesh nodes that is 5.2%
+ * of airtime at 16 clients on the default 15 s period — but 25.8% on a 3 s period, and
+ * 51.7% at 32 clients on 3 s, which is more than half the gate's airtime spent teaching
+ * ARP. Two ceilings above this one also bind before the array does:
+ *
+ *   MESH_MPP_MAX (32)  the off-mesh-host to proxying-node map, which lives on EVERY mesh
+ *                      node. Each client behind each gate consumes an entry on every peer,
+ *                      so 16 clients on one gate already fills half of it mesh-wide — a
+ *                      second gate would start evicting, and a lost entry silently breaks
+ *                      the mesh-to-client return leg.
+ *   the flat /24       tops out near 98 usable addresses.
+ *
+ * None of these is fixed by a faster PHY: the push is dominated by per-frame overhead,
+ * and the other two are protocol and addressing limits.
  */
 _Static_assert(AP_MAX_STAS <= GATE_MAX_CLIENTS,
                "EXAMPLE_AP_MAX_STAS exceeds GATE_MAX_CLIENTS: clients past the table would "

@@ -151,10 +151,15 @@ void gate_netif_setup_ap(void)
      * does not work: a 0.0.0.0 address makes the DHCP server fail to obtain a PCB, and a
      * later esp_netif_set_ip_info() then aborts with DHCP_NOT_STOPPED.
      *
-     * The lease pool starts at .2 and spans CONFIG_LWIP_DHCPS_MAX_STATION_NUM leases, so
-     * at the default of 8 it stays clear of the mesh nodes' .100 upwards. If you raise
-     * that Kconfig towards 100, pin the range explicitly with esp_netif_dhcps_option()
-     * to keep the pool below .100.
+     * On the pool range, since the obvious reading is wrong:
+     * CONFIG_LWIP_DHCPS_MAX_STATION_NUM bounds the LEASE-RECORD LIST, not the address
+     * range. The range is derived independently — start = server + 1 = .2, end = start +
+     * DHCPS_MAX_LEASE, and DHCPS_MAX_LEASE is 100 — so the pool is .2 through .101
+     * whatever that Kconfig says, and its top two addresses DO overlap the mesh nodes'
+     * .100 upwards. Reaching .100 needs on the order of a hundred concurrent clients, so
+     * it is unreachable here. Pinning the range means calling esp_netif_dhcps_option()
+     * before AUTOUP starts the server, and getting that ordering wrong boot-loops the
+     * gate — the DHCP_NOT_STOPPED path warned about just above.
      */
     static esp_netif_ip_info_t ap_ip;   /* runtime-initialised: esp_ip4addr_aton is not const */
     ap_ip.ip.addr = esp_ip4addr_aton(g_ap_ipv4);

@@ -32,7 +32,13 @@
 #include "gate.h"
 #include "umac/mesh/umac_mesh.h"
 
-#define ARP_TABLE_MAX     24
+/*
+ * The table holds BOTH sides — AP clients AND learned mesh hosts — so it must exceed
+ * their SUM, not either one. Sized from the client ceiling plus room for a sizeable
+ * mesh: at 24 with 5 mesh nodes it saturates near 19 clients and then thrashes its LRU,
+ * silently ceasing to teach ARP rather than failing. About 20 bytes per entry.
+ */
+#define ARP_TABLE_MAX     (AP_MAX_STAS + 32)
 #define ARP_ENTRY_TTL_MS  (5u * 60u * 1000u)
 
 struct arp_entry
@@ -58,6 +64,18 @@ static struct arp_entry g_arp[ARP_TABLE_MAX];
  * table under the lock and releases it before sending a single frame.
  */
 static portMUX_TYPE g_arp_mux = portMUX_INITIALIZER_UNLOCKED;
+
+static TaskHandle_t g_announce_task;
+
+/* Woken on a genuinely new mapping — see arp_announce_task for why the period alone is
+ * not enough, and gate_arp_start_announce for why the handle must exist before receive. */
+static void arp_wake_announce(void)
+{
+    if (g_announce_task != NULL)
+    {
+        xTaskNotifyGive(g_announce_task);
+    }
+}
 
 static uint32_t now_ms(void)
 {
@@ -101,6 +119,7 @@ static void arp_learn(uint32_t ip, const uint8_t *mac, uint8_t side)
     }
 
     int slot = (free_i >= 0) ? free_i : lru_i;
+    bool is_new = false;
     if (slot >= 0)
     {
         g_arp[slot].ip = ip;
@@ -108,8 +127,15 @@ static void arp_learn(uint32_t ip, const uint8_t *mac, uint8_t side)
         g_arp[slot].side = side;
         g_arp[slot].last_ms = now;
         g_arp[slot].used = true;   /* publish last, once the entry is fully populated */
+        is_new = true;
     }
     taskEXIT_CRITICAL(&g_arp_mux);
+
+    /* Outside the lock: the notify can leave a context switch pending. */
+    if (is_new)
+    {
+        arp_wake_announce();
+    }
 }
 
 void gate_arp_forget_mac(const uint8_t *mac)
@@ -365,7 +391,17 @@ static void arp_announce_task(void *arg)
     uint32_t period_ms = (uint32_t)(uintptr_t)arg;
     for (;;)
     {
-        vTaskDelay(pdMS_TO_TICKS(period_ms));
+        /*
+         * Wake early whenever a new host is learned; otherwise fall through on the period.
+         * The period is UPKEEP — the moment that actually matters is the FIRST push for a
+         * host, and a silent host is learned exactly once, when it answers a bridged ARP.
+         * Making that wait out a whole period leaves resolution on the lossy broadcast in
+         * the meantime, which is the very thing the proactive half exists to remove.
+         *
+         * Notifications collapse: pdTRUE clears the count, so a burst of newly-learned
+         * hosts produces one announce rather than one per host.
+         */
+        (void)ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(period_ms));
         arp_announce_once();
     }
 }
@@ -378,5 +414,11 @@ void gate_arp_start_announce(uint32_t period_ms)
                            "depend on lossy broadcast ARP");
         return;
     }
-    xTaskCreate(arp_announce_task, "gate_arp", 4096, (void *)(uintptr_t)period_ms, 4, NULL);
+    /*
+     * Created BEFORE the receive callbacks are registered, and that ordering is
+     * load-bearing: arp_learn() wakes this task by handle, so a host learned while the
+     * handle is still NULL drops its wake silently and waits out a full period.
+     */
+    xTaskCreate(arp_announce_task, "gate_arp", 4096, (void *)(uintptr_t)period_ms, 4,
+                &g_announce_task);
 }
