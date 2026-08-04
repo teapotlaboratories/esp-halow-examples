@@ -73,7 +73,7 @@ a single ping is enough to learn a host — and then answers directly:
 
 - **Reactive.** An ARP REQUEST for a host known on the other side is answered
   immediately over the reliable link.
-- **Proactive** (`EXAMPLE_PROXY_ARP_PUSH_MS`, default 3 s). Every known host is
+- **Proactive** (`EXAMPLE_PROXY_ARP_PUSH_MS`, default 15 s). Every known host is
   periodically taught about the hosts on the other side, over reliable unicast, so
   neither side ever needs to broadcast across the bridge at all.
 
@@ -98,10 +98,10 @@ an entry that already existed, which cannot bootstrap resolution.
 | `EXAMPLE_MESH_MAX_PLINKS` | `16` | |
 | `EXAMPLE_RANN_INTERVAL_MS` | `5000` | Must match every other gate — see below |
 | `EXAMPLE_AP_SSID` / `_PSK` | `MorseMicroESP32AP` / `12345678` | SAE, ≥ 8 characters |
-| `EXAMPLE_AP_MAX_STAS` | `4` | Bounded by the client table |
+| `EXAMPLE_AP_MAX_STAS` | `4` | Bounded by the client table; max 16 |
 | `EXAMPLE_S1G_CHANNEL` / `_OPCLASS` | `27` / `68` | One radio, so necessarily co-channel |
 | `EXAMPLE_SUBNET_PREFIX` | `10.9.9.` | AP side `.1`, DHCP from `.2`, mesh from `.100` |
-| `EXAMPLE_PROXY_ARP_PUSH_MS` | `3000` | `0` disables the proactive half |
+| `EXAMPLE_PROXY_ARP_PUSH_MS` | `15000` | Upkeep only — a new host is pushed immediately. `0` disables the proactive half |
 
 > **The RANN interval goes onto the wire as a raw number**, with no
 > millisecond-to-TU conversion. Every gate on the same mesh — including a Linux one —
@@ -172,12 +172,18 @@ re-inject it back into the mesh.
 ## Interoperability
 
 Gate discovery, the root announcement and the beacon gate bit are ported from
-`net/mac80211` and verified in both directions against a mainline Linux 802.11s node: a
-Linux gate bridging an off-mesh host to an ESP32 mesh node, and a Linux node
+`net/mac80211` and were verified in both directions against a mainline Linux 802.11s
+node: a Linux gate bridging an off-mesh host to an ESP32 mesh node, and a Linux node
 discovering an ESP32 gate, re-flooding its announcement, and learning a proxied source
 in its `mpp` table.
 
-## Verified on hardware
+**Where that evidence comes from.** Those interoperability runs, including a monitor
+capture byte-diffing the announcement and the beacon gate bit against a live Linux
+gate, were performed on the Rimba implementation this example is derived from — not
+re-run against this example. The port is the same code; the capture is not this
+repository's.
+
+## Verified on hardware — log-level, not frame-level
 
 Three ESP32-S3 + FGH100M boards: this gate, one `mesh` node, and one AP client.
 
@@ -193,3 +199,11 @@ proxied frames in both directions, the round trip, and proxy-ARP.
 
 Judged by the Rimba regression fixture `test-mesh-gate-sta`, which reported `PASS`
 against this example acting as the gate.
+
+**What that evidence is, precisely.** Everything above is read from serial logs and
+ping — association, DHCP, reply counts, TTL, `gates_known`. No frame was captured off
+air for this example, and nothing here is a byte-level comparison against a Linux
+transmission. That is a real distinction: log-level evidence shows the datapath works
+end to end, but cannot show that a frame this example emits is well-formed. A malformed
+field that no receiver happens to read passes every test on this page — which is not
+hypothetical, it is exactly the proxy-ARP defect fixed in this example's history.
